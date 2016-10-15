@@ -1,22 +1,34 @@
-// TODO: Set the proper pins
+
+#include <Servo.h>
+
 #define LEFT_TAPE_SENSOR 0
 #define RIGHT_TAPE_SENSOR 1
 #define RIGHT_INT_SENSOR -1
 #define LEFT_INT_SENSOR -1
 
-#define LEFT_MOTOR_OUT 0
-#define RIGHT_MOTOR_OUT 0
+#define LEFT_MOTOR_OUT 9
+#define RIGHT_MOTOR_OUT 10
 #define FULLY_ON_THRESH 600
 #define HALF_ON_THRESH 300
 
+
 int leftTapeVal, rightTapeVal, leftIntVal, rightIntVal;
 int tapeThresh = 600;
+
+Servo motorLeft;
+Servo motorRight;
+
+int speedLeft;
+int speedRight;
+
+int leftTapeVal, rightTapeVal, middleTapeVal;
 
 int prevError, pastError, recError, error = 0;
 int q,m = 0;
 int p,d = 0;
 int correction = 0;
-  // Gains
+
+// Gains
 int kp = 5;
 int kd = 5;
 
@@ -34,6 +46,9 @@ void setup() {
   // put your setup code here, to run once:
   // Do we need to set pin modes?? ie. input/output/pwm
   Serial.begin(9600);
+  motorLeft.attach(LEFT_MOTOR_OUT);
+  motorRight.attach(RIGHT_MOTOR_OUT);
+
 }
 
 void loop() {
@@ -123,7 +138,16 @@ void tapeFollow() {
   pastError = error;
   m++;
 
-  // Write to motors, I guess this should be analogWrite???
-  //motor.speed(LEFT_MOTOR, tapeFollowVel - correction);
-  //motor.speed(RIGHT_MOTOR, tapeFollowVel + correction);
+  // what value?
+  int tapeFollowVel = 0;
+
+  // set speed
+  // need to scale so that it varies from slow to fast
+  // from ~120 - 180 for CW
+  // from ~75 - 0 for CCW
+  speedLeft = tapeFollowVel - correction;
+  speedRight = tapeFollowVel + correction;
+
+  motorLeft.write(speedLeft);
+  motorRight.write(speedRight);
 }
