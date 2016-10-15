@@ -1,13 +1,16 @@
+// TODO: Set the proper pins
 #define LEFT_TAPE_SENSOR 0
-#define RIGHT_TAPE_SENSOR 0
-#define MIDDLE_TAPE_SENSOR 0
+#define RIGHT_TAPE_SENSOR 1
+#define RIGHT_INT_SENSOR -1
+#define LEFT_INT_SENSOR -1
 
 #define LEFT_MOTOR_OUT 0
 #define RIGHT_MOTOR_OUT 0
 #define FULLY_ON_THRESH 600
 #define HALF_ON_THRESH 300
 
-int leftTapeVal, rightTapeVal, middleTapeVal;
+int leftTapeVal, rightTapeVal, leftIntVal, rightIntVal;
+int tapeThresh = 600;
 
 int prevError, pastError, recError, error = 0;
 int q,m = 0;
@@ -17,23 +20,66 @@ int correction = 0;
 int kp = 5;
 int kd = 5;
 
+// Intersection stuff
+int detectIntersectionCount = 0;
+int detectIntersectionThresh = 20;
+int intersectionDetected = 0;
+int nextIntersection = 0;
+int loopsSinceLastInt = 0;
+
+int loopCount = 0;
+int serialFreq = 10;
+
 void setup() {
   // put your setup code here, to run once:
   // Do we need to set pin modes?? ie. input/output/pwm
+  Serial.begin(9600);
 }
 
 void loop() {
+  loopCount++;
+  loopsSinceLastInt++;
   // put your main code here, to run repeatedly:
-  leftTapeVal = digitalRead(LEFT_TAPE_SENSOR);
-  rightTapeVal = digitalRead(RIGHT_TAPE_SENSOR);
-  middleTapeVal = digitalRead(MIDDLE_TAPE_SENSOR);
+  leftTapeVal = analogRead(LEFT_TAPE_SENSOR) > tapeThresh;
+  rightTapeVal = analogRead(RIGHT_TAPE_SENSOR) > tapeThresh;
+  leftIntVal = analogRead(LEFT_INT_SENSOR) > tapeThresh;
+  rightIntVal = analogRead(RIGHT_INT_SENSOR) > tapeThresh;
+
 
   tapeFollow();
+  if(loopsSinceLastInt > 1000){
+    detectIntersection();
+  }
   
+  if(loopCount%serialFreq == 0){
+    Serial.print(leftTapeVal);
+    Serial.print(" ");
+    Serial.print(rightTapeVal);
+    Serial.print(":  ");
+    Serial.println(correction);
+  }
+}
+
+void detectIntersection(){
+  if(leftIntVal == HIGH || rightIntVal == HIGH){
+    if(detectIntersectionThresh <= detectIntersectionThresh){
+      detectIntersectionCount++;
+    }
+  }else if (detectIntersectionCount > 0){
+    detectIntersectionCount--;
+  }
+  if(!intersectionDetected && detectIntersectionCount > detectIntersectionThresh){
+    intersectionDetected = 1;
+  }
+  if(intersectionDetected && detectIntersectionCount < detectIntersectionThresh/4){
+    intersectionDetected = 0;
+    loopsSinceLastInt = 0;
+    nextIntersection++;
+  }
 }
 
 void tapeFollow() {
-  // Determine the Error Value Error is negative if to the left of the tape, positive if to the right
+  // Determine the Error Value, Error is negative if to the left of the tape, positive if to the right
   // Two QRD Logic
   if (leftTapeVal == LOW && rightTapeVal == LOW) {
     if (pastError < 0) {
@@ -51,36 +97,17 @@ void tapeFollow() {
     error = 0;
   }
 
-  // Three QRD Logic
-  if (leftTapeVal == LOW && rightTapeVal == LOW) {
-    if(middleTapeVal == HIGH){
-      error = 0;
-    } else if (pastError < 0) { // All off - determine error based on pastError
-      error = -5;
-    } else if (pastError > 0) {
-      error = 5;
-    } else if (pastError == 0) {
-      // Should anything be done here??
-    }
-  } else{
-    if(middleTapeVal == HIGH){ // Outside and middle sensor on tape
-      if (rightTapeVal == HIGH) {
-        error = -1;
-      } else if (leftTapeVal == HIGH) {
-        error = 1;
-      } else {// Impossible to reach
-        error = 0;
-      }
-    }else{ // Just one outside sensor on tape
-      if (rightTapeVal == HIGH) {
-        error = -3;
-      } else if (leftTapeVal == HIGH) {
-        error = 3;
-      } else {// Impossible to reach
-        error = 0;
-      }
-    }
-  }
+  /*// Look at outside QRDs and adjust the error
+  if ((leftIntVal == HIGH || rightIntVal == HIGH) && nextIntersection == 0 || nextIntersection == 3){
+    error = 0;
+  }else if(leftIntVal == HIGH){
+    error = 8;
+  }else if(rightIntVal == HIGH){
+    error = -8;
+  }*/
+  
+
+
 
   //P-D Calculations
   if (!error == pastError) {
