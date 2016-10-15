@@ -21,8 +21,6 @@ Servo motorRight;
 int speedLeft;
 int speedRight;
 
-int leftTapeVal, rightTapeVal, middleTapeVal;
-
 int prevError, pastError, recError, error = 0;
 int q,m = 0;
 int p,d = 0;
