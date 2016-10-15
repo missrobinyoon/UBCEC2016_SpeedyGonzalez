@@ -1,16 +1,13 @@
 
 #include <Servo.h>
 
-#define LEFT_TAPE_SENSOR 0
-#define RIGHT_TAPE_SENSOR 1
-#define RIGHT_INT_SENSOR -1
-#define LEFT_INT_SENSOR -1
+#define LEFT_TAPE_SENSOR 5
+#define RIGHT_TAPE_SENSOR 0
+#define RIGHT_INT_SENSOR 1
+#define LEFT_INT_SENSOR 4
 
-#define LEFT_MOTOR_OUT 9
-#define RIGHT_MOTOR_OUT 10
-#define FULLY_ON_THRESH 600
-#define HALF_ON_THRESH 300
-
+#define LEFT_MOTOR_OUT 10
+#define RIGHT_MOTOR_OUT 9
 
 int leftTapeVal, rightTapeVal, leftIntVal, rightIntVal;
 int tapeThresh = 600;
@@ -18,8 +15,11 @@ int tapeThresh = 600;
 Servo motorLeft;
 Servo motorRight;
 
-int speedLeft;
-int speedRight;
+// Right: Clockwise, Left: CCW
+int baseSpeed = 30;
+int leftBaseSpeed = 90 - baseSpeed;
+int rightBaseSpeed = 90 + baseSpeed;
+int speedLeft, speedRight;
 
 int prevError, pastError, recError, error = 0;
 int q,m = 0;
@@ -27,7 +27,7 @@ int p,d = 0;
 int correction = 0;
 
 // Gains
-int kp = 5;
+int kp = 15;
 int kd = 5;
 
 // Intersection stuff
@@ -46,13 +46,12 @@ void setup() {
   Serial.begin(9600);
   motorLeft.attach(LEFT_MOTOR_OUT);
   motorRight.attach(RIGHT_MOTOR_OUT);
-
 }
 
 void loop() {
   loopCount++;
   loopsSinceLastInt++;
-  // put your main code here, to run repeatedly:
+
   leftTapeVal = analogRead(LEFT_TAPE_SENSOR) > tapeThresh;
   rightTapeVal = analogRead(RIGHT_TAPE_SENSOR) > tapeThresh;
   leftIntVal = analogRead(LEFT_INT_SENSOR) > tapeThresh;
@@ -61,7 +60,7 @@ void loop() {
 
   tapeFollow();
   if(loopsSinceLastInt > 1000){
-    detectIntersection();
+    //detectIntersection();
   }
   
   if(loopCount%serialFreq == 0){
@@ -75,7 +74,7 @@ void loop() {
 
 void detectIntersection(){
   if(leftIntVal == HIGH || rightIntVal == HIGH){
-    if(detectIntersectionThresh <= detectIntersectionThresh){
+    if(detectIntersectionCount <= detectIntersectionThresh){
       detectIntersectionCount++;
     }
   }else if (detectIntersectionCount > 0){
@@ -110,17 +109,23 @@ void tapeFollow() {
     error = 0;
   }
 
-  /*// Look at outside QRDs and adjust the error
-  if ((leftIntVal == HIGH || rightIntVal == HIGH) && nextIntersection == 0 || nextIntersection == 3){
+  //pastError = error;
+  // Look at outside QRDs and adjust the error
+  /*if ((leftIntVal == HIGH || rightIntVal == HIGH) && (nextIntersection == 0 || nextIntersection == 3 || nextIntersection > 5)){
     error = 0;
+    /*if (leftIntVal == HIGH){
+      pastError = 1;
+    }else{
+      pastError = -1
+    }
+    pastError = error;
   }else if(leftIntVal == HIGH){
     error = 8;
+    pastError = error;
   }else if(rightIntVal == HIGH){
     error = -8;
+    pastError = error;
   }*/
-  
-
-
 
   //P-D Calculations
   if (!error == pastError) {
@@ -136,15 +141,14 @@ void tapeFollow() {
   pastError = error;
   m++;
 
-  // what value?
-  int tapeFollowVel = 0;
+  //correction = 0; // GET RID OF THIS LATER
 
   // set speed
   // need to scale so that it varies from slow to fast
   // from ~120 - 180 for CW
   // from ~75 - 0 for CCW
-  speedLeft = tapeFollowVel - correction;
-  speedRight = tapeFollowVel + correction;
+  speedLeft = leftBaseSpeed + correction;
+  speedRight = rightBaseSpeed + correction;
 
   motorLeft.write(speedLeft);
   motorRight.write(speedRight);
